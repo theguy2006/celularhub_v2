@@ -100,10 +100,9 @@ const seed = [
     price: 6400,
     condition: "Seminovo",
     description: "Tela curva, ótimo estado.",
-    image:
-      "https://m.media-amazon.com/images/I/51wYvr-k9oL.jpg",
+    image: "https://m.media-amazon.com/images/I/51wYvr-k9oL.jpg",
   },
-    {
+  {
     id: "s9",
     userId: "demo",
     title: "iPhone 18 Pro",
@@ -114,7 +113,7 @@ const seed = [
     image:
       "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-18-pro-finish-select-202609-6-9inch-silver_FMT_WHH?wid=1280&hei=492&fmt=p-jpg&qlt=80&.v=ODB3TEdtbk8ybkd3clM3dWVML3VCYTBPcjFUQzN2eEEzbTlaeVZmVmk4TVRqUkJqUGFyN1pGMnlaV3JkWU9jdmt2eHZoNkptSExvWXZRTnR6aG9wVFNzRVdVYUZMK2pnb0pYa1BITFFSbEwxcjBVRyswWG14bEI4WVZBcUIybEZJK1psK05SazlodkZTTS9iTFZuZkpn&traceId=1",
   },
-    {
+  {
     id: "s10",
     userId: "demo",
     title: "iPhone 18 Pro Max 256GB",
@@ -143,7 +142,8 @@ const seed = [
     brand: "Samsung",
     price: 6636,
     condition: "Novo",
-    description: "Dobrável flip, 12GB de RAM, Android 17 e 7 anos de atualizações.",
+    description:
+      "Dobrável flip, 12GB de RAM, Android 17 e 7 anos de atualizações.",
     image:
       "https://www.oficinadanet.com.br/media/post/71690/330/galaxyzflip8-5.jpg",
   },
@@ -202,7 +202,8 @@ const db = {
 };
 const app = document.getElementById("app");
 let view = "home",
-  filters = { q: "", brand: "", cond: "" };
+  filters = { q: "", brand: "", cond: "" },
+  heroTimer;
 
 function go(v) {
   const me = db.me();
@@ -303,6 +304,7 @@ function homeList() {
 }
 
 function render() {
+  clearInterval(heroTimer);
   const me = db.me();
   document.getElementById("authBtn").textContent = me ? "Sair" : "Entrar";
   document
@@ -310,7 +312,17 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.go === view));
   if (view === "home") {
     const brands = [...new Set(db.ads().map((a) => a.brand))];
-    app.innerHTML = `<section class="hero"><h1>Compre e venda celulares com simplicidade.</h1><p>Novos e seminovos, direto de quem vende.</p><button class="btn" onclick="go('new')">Anunciar meu celular</button></section>
+    const showcase = db
+      .ads()
+      .filter((a) => a.image)
+      .slice(-6);
+    app.innerHTML = `<section class="hero hero-split"><div class="hero-text"><h1>Compre e venda celulares com simplicidade.</h1><p>Novos e seminovos, direto de quem vende.</p><button class="btn" onclick="go('new')">Anunciar meu celular</button></div>
+  ${
+    showcase.length
+      ? `<div class="hero-visual" id="heroVis"><div class="hero-card" id="heroCard" title="Clique para ver esse aparelho"><img id="heroImg" src="${esc(showcase[0].image)}" alt="${esc(showcase[0].title)}"><div class="hero-info"><b id="heroTitle">${esc(showcase[0].title)}</b><span id="heroPrice">${brl(showcase[0].price)}</span></div></div>
+      <div class="hero-dots">${showcase.map((_, i) => `<button type="button" class="dot ${i === 0 ? "on" : ""}" data-i="${i}" aria-label="Ver aparelho ${i + 1}"></button>`).join("")}</div></div>`
+      : ""
+  }</section>
   <div class="filters"><input id="q" placeholder="Pesquisar anúncios…" value="${esc(filters.q)}">
   <select id="brand"><option value="">Todas as marcas</option>${brands.map((b) => `<option ${b === filters.brand ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
   <select id="cond"><option value="">Qualquer estado</option>${["Novo", "Seminovo"].map((c) => `<option ${c === filters.cond ? "selected" : ""}>${c}</option>`).join("")}</select></div>
@@ -328,6 +340,53 @@ function render() {
     q.oninput = upd;
     brand.onchange = upd;
     cond.onchange = upd;
+
+    if (showcase.length) {
+      let i = 0;
+      const vis = document.getElementById("heroVis"),
+        card = document.getElementById("heroCard"),
+        img = document.getElementById("heroImg"),
+        title = document.getElementById("heroTitle"),
+        price = document.getElementById("heroPrice"),
+        dots = vis.querySelectorAll(".dot");
+      const show = (n) => {
+        i = (n + showcase.length) % showcase.length;
+        const a = showcase[i];
+        img.classList.add("swap");
+        setTimeout(() => {
+          img.src = a.image;
+          img.alt = a.title;
+          title.textContent = a.title;
+          price.textContent = brl(a.price);
+          dots.forEach((d, k) => d.classList.toggle("on", k === i));
+          img.classList.remove("swap");
+        }, 200);
+      };
+      const start = () => {
+        clearInterval(heroTimer);
+        heroTimer = setInterval(() => show(i + 1), 3500);
+      };
+      dots.forEach(
+        (d) =>
+          (d.onclick = () => {
+            show(Number(d.dataset.i));
+            start();
+          }),
+      );
+      card.onclick = () => {
+        filters.q = showcase[i].title;
+        render();
+        document.getElementById("list").scrollIntoView({ behavior: "smooth" });
+      };
+      vis.onmousemove = (e) => {
+        const r = vis.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 14}deg) rotateX(${-y * 14}deg)`;
+      };
+      vis.onmouseleave = () => (card.style.transform = "");
+      start();
+    }
   } else if (view === "login") {
     let mode = "in";
     const draw = () => {
